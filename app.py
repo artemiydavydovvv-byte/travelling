@@ -17,8 +17,8 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template_string, request
 
 load_dotenv(Path(__file__).parent / ".env")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-SERPAPI_KEY = os.getenv("SERPAPI_API_KEY")
+ANTHROPIC_API_KEY = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+SERPAPI_KEY = (os.getenv("SERPAPI_API_KEY") or "").strip()
 
 HOTELS_FILE = Path(__file__).parent / "hotels.json"
 
