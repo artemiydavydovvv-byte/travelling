@@ -17,8 +17,8 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template_string, request
 
 load_dotenv(Path(__file__).parent / ".env")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-SERPAPI_KEY = os.getenv("SERPAPI_API_KEY")
+ANTHROPIC_API_KEY = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+SERPAPI_KEY = (os.getenv("SERPAPI_API_KEY") or "").strip()
 
 HOTELS_FILE = Path(__file__).parent / "hotels.json"
 
@@ -38,6 +38,21 @@ return ONLY a JSON object with exactly these keys:
   avoidances — a list of lowercase words/short phrases to screen out from hotel names, vibes and descriptions
                Examples: ["resort", "hostel", "family", "party", "shared", "chain", "corporate", "crowded", "golf"]
                Return [] if nothing to avoid.
+
+Scoring rules — be PRECISE and BOLD:
+- Use the FULL 0–10 range. Do not cluster everything around 5–7.
+- If the user emphasises a dimension ("really luxury", "super romantic", "extremely remote", "big adventure"),
+  score it 9 or 10. One keyword = 8; one strong keyword = 9-10.
+- Dimensions the user does NOT mention should stay at 5 (neutral).
+- If the user explicitly rejects something ("no parties", "not touristy", "simple not luxury"), score it 0–2.
+- "Chill", "relax", "peaceful", "quiet" → intensity 1-3, remoteness 6-8, luxury 5-6.
+- "Luxury", "high-end", "5-star", "expensive", "lavish" → luxury 9-10.
+- "Adventure", "extreme", "intense" → intensity 9-10.
+- "Romantic", "couples", "honeymoon" → romance 9-10.
+- "Off the grid", "isolated", "no one around" → remoteness 9-10.
+- "Unique", "unusual", "never heard of" → novelty 9-10.
+- "Scenic", "beautiful views", "dramatic landscape" → visual_awe 9-10.
+
 No explanation, no markdown, no extra keys — just the JSON object."""
 
 _PITCH_SYSTEMS = {
@@ -107,13 +122,15 @@ def _passes_avoidance(hotel: dict, avoidances: list) -> bool:
 
 def compute_match(rows: list, user_scores: dict) -> None:
     for row in rows:
-        dist, dims = 0, 0
+        dist, weight_total = 0.0, 0.0
         for key, col in _DIMENSION_MAP:
             val = row.get(col)
             if isinstance(val, (int, float)):
-                dist += abs(val - user_scores[key])
-                dims += 1
-        row["Match %"] = round((1 - dist / (dims * 10)) * 100) if dims else 0
+                # Dimensions the user cares strongly about (far from neutral 5) count more
+                weight = 1.0 + abs(user_scores[key] - 5) / 5.0  # range 1.0–2.0
+                dist += abs(val - user_scores[key]) * weight
+                weight_total += 10.0 * weight
+        row["Match %"] = round((1 - dist / weight_total) * 100) if weight_total else 0
 
 
 def generate_pitch(user_feeling: str, hotel: dict, role: str = "safe") -> str:
@@ -140,6 +157,17 @@ def generate_pitch(user_feeling: str, hotel: dict, role: str = "safe") -> str:
 
 def select_all(hotels: list) -> list:
     by_match = sorted(hotels, key=lambda h: h.get("Match %", 0), reverse=True)
+
+    # Destination diversity: at most 2 hotels per destination
+    dest_count: dict = {}
+    diverse = []
+    for h in by_match:
+        dest = h.get("Destination", "")
+        if dest_count.get(dest, 0) < 2:
+            diverse.append(h)
+            dest_count[dest] = dest_count.get(dest, 0) + 1
+    if len(diverse) >= 15:
+        by_match = diverse
 
     top10 = by_match[:min(10, len(by_match))]
     safe = max(top10, key=lambda h: float(h.get("Rating") or 0))
@@ -1086,13 +1114,26 @@ HTML = """<!DOCTYPE html>
              onerror="this.outerHTML='<div class=card-img-placeholder>🏨</div>'">`
       : `<div class="card-img-placeholder">🏨</div>`;
 
-    const livePrice = h.live_price || h['Price (total)'];
-    const price = livePrice ? `<span class="card-price">Est. ~${livePrice}</span>` : `<span></span>`;
+    const rawNightly = h.live_price_per_night;
+    const rawTotal   = h.live_price || h['Price (total)'];
+    let nightlyDisplay = '';
+    if (rawNightly) {
+      nightlyDisplay = rawNightly + '/night';
+    } else if (rawTotal) {
+      const m = String(rawTotal).replace(/,/g, '').match(/[\d]+\.?\d*/);
+      if (m) {
+        const perNight = Math.round(parseFloat(m[0]) / 4);
+        nightlyDisplay = '~$' + perNight.toLocaleString() + '/night';
+      }
+    }
+    const price = nightlyDisplay
+      ? `<span class="card-price">from ${nightlyDisplay}</span>`
+      : `<span></span>`;
 
     const name = h.Name || '';
     const dest = h.Destination || '';
-    const gq = encodeURIComponent(name + ' ' + dest);
-    const url = h.booking_url || ('https://www.google.com/travel/hotels?q=' + gq);
+    const url = h.booking_url
+      || ('https://www.google.com/search?q=' + encodeURIComponent(name + ' ' + dest + ' hotel book'));
 
     const pitchHtml = h.pitch
       ? `<p class="card-pitch">${h.pitch}</p>`
