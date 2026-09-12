@@ -77,7 +77,11 @@ def feeling_to_scores(user_input: str) -> dict:
         system=_SCORE_SYSTEM,
         messages=[{"role": "user", "content": user_input}],
     )
-    raw = json.loads(msg.content[0].text.strip())
+    text = msg.content[0].text.strip()
+    if text.startswith("```"):
+        parts = text.split("```")
+        text = parts[1].lstrip("json").strip() if len(parts) > 1 else text
+    raw = json.loads(text)
     scores = {k: int(raw[k]) for k in _SCORE_KEYS if k in raw}
     scores["budget_usd"]  = float(raw.get("budget_usd") or 0)
     scores["avoidances"]  = [str(a).lower() for a in (raw.get("avoidances") or [])]
@@ -1144,6 +1148,14 @@ def health():
 
 @app.route("/match", methods=["POST"])
 def match():
+    try:
+        return _match_inner()
+    except Exception as exc:
+        import traceback as tb
+        return jsonify({"error": str(exc), "trace": tb.format_exc()}), 500
+
+
+def _match_inner():
     if not HOTELS_FILE.exists():
         return jsonify({"error": "hotels.json not found — run travellingai.py first"}), 500
 
