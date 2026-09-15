@@ -1168,26 +1168,15 @@ HTML = """<!DOCTYPE html>
       : `<div class="card-img-placeholder">🏨</div>`;
 
     const rawNightly = h.live_price_per_night;
-    const rawTotal   = h.live_price || h['Price (total)'];
-    let nightlyDisplay = '';
-    if (rawNightly) {
-      nightlyDisplay = rawNightly + '/night';
-    } else if (rawTotal) {
-      const m = String(rawTotal).replace(/,/g, '').match(/[\d]+\.?\d*/);
-      if (m) {
-        const perNight = Math.round(parseFloat(m[0]) / 4);
-        nightlyDisplay = '~$' + perNight.toLocaleString() + '/night';
-      }
-    }
-    const price = nightlyDisplay
-      ? `<span class="card-price">from ${nightlyDisplay}</span>`
+    const price = rawNightly
+      ? `<span class="card-price">from ${rawNightly}/night</span>`
       : `<span></span>`;
 
     const name = h.Name || '';
     const dest = h.Destination || '';
     const url = h.booking_url
       || h.URL
-      || ('https://www.google.com/travel/hotels?q=' + encodeURIComponent(name + (dest ? ' ' + dest : '')));
+      || ('https://www.google.com/maps/search/' + encodeURIComponent(name + (dest ? ' ' + dest : '')));
 
     const pitchHtml = h.pitch
       ? `<span class="ai-label">✦ AI insight</span><p class="card-pitch">${h.pitch}</p>`
