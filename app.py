@@ -38,6 +38,21 @@ return ONLY a JSON object with exactly these keys:
   avoidances — a list of lowercase words/short phrases to screen out from hotel names, vibes and descriptions
                Examples: ["resort", "hostel", "family", "party", "shared", "chain", "corporate", "crowded", "golf"]
                Return [] if nothing to avoid.
+
+Scoring rules — be PRECISE and BOLD:
+- Use the FULL 0–10 range. Do not cluster everything around 5–7.
+- If the user emphasises a dimension ("really luxury", "super romantic", "extremely remote", "big adventure"),
+  score it 9 or 10. One keyword = 8; one strong keyword = 9-10.
+- Dimensions the user does NOT mention should stay at 5 (neutral).
+- If the user explicitly rejects something ("no parties", "not touristy", "simple not luxury"), score it 0–2.
+- "Chill", "relax", "peaceful", "quiet" → intensity 1-3, remoteness 6-8, luxury 5-6.
+- "Luxury", "high-end", "5-star", "expensive", "lavish" → luxury 9-10.
+- "Adventure", "extreme", "intense" → intensity 9-10.
+- "Romantic", "couples", "honeymoon" → romance 9-10.
+- "Off the grid", "isolated", "no one around" → remoteness 9-10.
+- "Unique", "unusual", "never heard of" → novelty 9-10.
+- "Scenic", "beautiful views", "dramatic landscape" → visual_awe 9-10.
+
 No explanation, no markdown, no extra keys — just the JSON object."""
 
 _PITCH_SYSTEMS = {
@@ -107,13 +122,15 @@ def _passes_avoidance(hotel: dict, avoidances: list) -> bool:
 
 def compute_match(rows: list, user_scores: dict) -> None:
     for row in rows:
-        dist, dims = 0, 0
+        dist, weight_total = 0.0, 0.0
         for key, col in _DIMENSION_MAP:
             val = row.get(col)
             if isinstance(val, (int, float)):
-                dist += abs(val - user_scores[key])
-                dims += 1
-        row["Match %"] = round((1 - dist / (dims * 10)) * 100) if dims else 0
+                # Dimensions the user cares strongly about (far from neutral 5) count more
+                weight = 1.0 + abs(user_scores[key] - 5) / 5.0  # range 1.0–2.0
+                dist += abs(val - user_scores[key]) * weight
+                weight_total += 10.0 * weight
+        row["Match %"] = round((1 - dist / weight_total) * 100) if weight_total else 0
 
 
 def generate_pitch(user_feeling: str, hotel: dict, role: str = "safe") -> str:
@@ -140,6 +157,17 @@ def generate_pitch(user_feeling: str, hotel: dict, role: str = "safe") -> str:
 
 def select_all(hotels: list) -> list:
     by_match = sorted(hotels, key=lambda h: h.get("Match %", 0), reverse=True)
+
+    # Destination diversity: at most 2 hotels per destination
+    dest_count: dict = {}
+    diverse = []
+    for h in by_match:
+        dest = h.get("Destination", "")
+        if dest_count.get(dest, 0) < 2:
+            diverse.append(h)
+            dest_count[dest] = dest_count.get(dest, 0) + 1
+    if len(diverse) >= 15:
+        by_match = diverse
 
     top10 = by_match[:min(10, len(by_match))]
     safe = max(top10, key=lambda h: float(h.get("Rating") or 0))
@@ -264,7 +292,7 @@ HTML = """<!DOCTYPE html>
     margin-bottom: 48px;
   }
   .about p {
-    color: #8A8070;
+    color: #5E574F;
     font-size: 0.97rem;
     line-height: 1.8;
   }
@@ -503,7 +531,7 @@ HTML = """<!DOCTYPE html>
     gap: 12px;
   }
   .card-name { font-size: 1.15rem; font-weight: 800; line-height: 1.25; color: #1E1B18; }
-  .card-dest { font-size: 0.82rem; color: #9A8E80; margin-top: 4px; }
+  .card-dest { font-size: 0.82rem; color: #6E6358; margin-top: 4px; }
   .match-pill {
     padding: 4px 12px;
     border-radius: 20px;
@@ -733,6 +761,59 @@ HTML = """<!DOCTYPE html>
     text-align: left;
   }
   .person-ta::placeholder { color: #C4B8A8; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: #F5EEE4;
+    border-top: 1px solid #EDE5D8;
+    padding: 32px 24px 40px;
+    text-align: center;
+  }
+  .footer-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+  .footer-disc {
+    font-size: 0.73rem;
+    color: #9A8E80;
+    max-width: 580px;
+    line-height: 1.6;
+  }
+  .footer-links {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    font-size: 0.72rem;
+    color: #C4B8A8;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .footer-links a { color: #9A8E80; text-decoration: none; }
+  .footer-links a:hover { color: #E07B45; text-decoration: underline; }
+  .footer-copy { font-size: 0.67rem; color: #C4B8A8; margin-top: 2px; }
+
+  /* AI-generated label */
+  .ai-label {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #C4B8A8;
+    margin-bottom: 3px;
+  }
+
+  /* Affiliate note under Book Now */
+  .aff-note {
+    font-size: 0.60rem;
+    color: #C4B8A8;
+    margin-top: 3px;
+    text-align: right;
+  }
 </style>
 </head>
 <body>
@@ -744,8 +825,8 @@ HTML = """<!DOCTYPE html>
 
   <div class="about">
     <p>We don't ask for dates or star ratings. We ask how you want to feel.</p>
-    <p>Describe the experience you're after and we'll search 475 hotels across
-       25 of the world's most extraordinary destinations — from Patagonia to Cappadocia —
+    <p>Describe the experience you're after and we'll search hundreds of hotels across
+       dozens of the world's most extraordinary destinations — from Patagonia to Cappadocia —
        and find the ones that actually match you.</p>
   </div>
 
@@ -772,7 +853,7 @@ HTML = """<!DOCTYPE html>
           oninput="grow(this)" onkeydown="onKey(event)"></textarea>
       </div>
     </div>
-    <button class="send" id="btn" onclick="search()" title="Find matches">
+    <button class="send" id="btn" onclick="search()" aria-label="Find matching hotels" title="Find matches">
       <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
     </button>
   </div>
@@ -793,7 +874,7 @@ HTML = """<!DOCTYPE html>
   <div class="hint">Press Enter to search &nbsp;·&nbsp; Shift+Enter for new line</div>
 </div>
 
-<div id="results"></div>
+<div id="results" role="region" aria-live="polite" aria-label="Hotel search results"></div>
 
 <script>
   let lastQuery      = '';
@@ -1086,16 +1167,29 @@ HTML = """<!DOCTYPE html>
              onerror="this.outerHTML='<div class=card-img-placeholder>🏨</div>'">`
       : `<div class="card-img-placeholder">🏨</div>`;
 
-    const livePrice = h.live_price || h['Price (total)'];
-    const price = livePrice ? `<span class="card-price">Est. ~${livePrice}</span>` : `<span></span>`;
+    const rawNightly = h.live_price_per_night;
+    const rawTotal   = h.live_price || h['Price (total)'];
+    let nightlyDisplay = '';
+    if (rawNightly) {
+      nightlyDisplay = rawNightly + '/night';
+    } else if (rawTotal) {
+      const m = String(rawTotal).replace(/,/g, '').match(/[\d]+\.?\d*/);
+      if (m) {
+        const perNight = Math.round(parseFloat(m[0]) / 4);
+        nightlyDisplay = '~$' + perNight.toLocaleString() + '/night';
+      }
+    }
+    const price = nightlyDisplay
+      ? `<span class="card-price">from ${nightlyDisplay}</span>`
+      : `<span></span>`;
 
     const name = h.Name || '';
     const dest = h.Destination || '';
-    const gq = encodeURIComponent(name + ' ' + dest);
-    const url = h.booking_url || ('https://www.google.com/travel/hotels?q=' + gq);
+    const url = h.booking_url
+      || ('https://www.google.com/search?q=' + encodeURIComponent(name + ' ' + dest + ' hotel book'));
 
     const pitchHtml = h.pitch
-      ? `<p class="card-pitch">${h.pitch}</p>`
+      ? `<span class="ai-label">✦ AI insight</span><p class="card-pitch">${h.pitch}</p>`
       : '';
 
     return `
@@ -1120,13 +1214,35 @@ HTML = """<!DOCTYPE html>
             ${refineButtons(h)}
             <div class="card-footer">
               ${price}
-              <a class="book-link" href="${url}" target="_blank" rel="noopener">Book Now →</a>
+              <div style="text-align:right">
+                <a class="book-link" href="${url}" target="_blank" rel="noopener noreferrer"
+                   aria-label="Book ${(h.Name||'').replace(/"/g,'')}, opens in new tab">Book Now →</a>
+                <p class="aff-note">* may be an affiliate link</p>
+              </div>
             </div>
           </div>
         </div>
       </div>`;
   }
 </script>
+
+<footer>
+  <div class="footer-inner">
+    <p class="footer-disc">
+      TravelMatch AI uses affiliate links. We may earn a commission when you book through our recommendations, at no extra cost to you. AI-generated insights are for discovery purposes only — always verify details before booking.
+    </p>
+    <nav class="footer-links" aria-label="Legal pages">
+      <a href="/privacy">Privacy Policy</a>
+      <span aria-hidden="true">·</span>
+      <a href="/terms">Terms &amp; Conditions</a>
+      <span aria-hidden="true">·</span>
+      <a href="/cookies">Cookie Policy</a>
+    </nav>
+    <p class="footer-copy">
+      &copy; 2026 TravelMatch AI &nbsp;·&nbsp; Hotel images are property of their respective copyright holders, displayed via Google Hotels data for illustrative purposes.
+    </p>
+  </div>
+</footer>
 </body>
 </html>"""
 
@@ -1279,6 +1395,153 @@ def avail():
         for f in as_completed(futures):
             results[futures[f]] = f.result()
     return jsonify(results)
+
+
+def _legal(title, body):
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title} — TravelMatch AI</title>
+<style>
+*,*::before,*::after{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;
+      background:#FDF8F2;color:#2C2A26;line-height:1.75}}
+.w{{max-width:760px;margin:0 auto;padding:56px 24px 100px}}
+.back{{display:inline-block;margin-bottom:32px;color:#9A8E80;text-decoration:none;font-size:.85rem}}
+.back:hover{{color:#E07B45}}
+h1{{font-size:1.85rem;font-weight:800;margin-bottom:6px}}
+.date{{color:#9A8E80;font-size:.78rem;margin-bottom:36px}}
+h2{{font-size:1rem;font-weight:700;margin:28px 0 8px;color:#1E1B18}}
+p,li{{color:#5A5248;font-size:.93rem;margin-bottom:6px}}
+ul{{padding-left:20px;margin-bottom:10px}}
+a{{color:#E07B45}}
+.box{{background:#FFF7F2;border-left:3px solid #E07B45;padding:12px 16px;
+      border-radius:0 8px 8px 0;margin:16px 0;font-size:.9rem}}
+strong{{color:#2C2A26}}
+</style>
+</head>
+<body>
+<div class="w">
+<a class="back" href="/">← Back to TravelMatch AI</a>
+{body}
+</div>
+</body>
+</html>"""
+
+
+@app.route("/privacy")
+def privacy():
+    body = """
+<h1>Privacy Policy</h1>
+<p class="date">Last updated: September 2026</p>
+<div class="box">
+  <p><strong>Short version:</strong> We do not store your search queries. We do not use tracking or advertising cookies. Your searches are processed in real time by Anthropic's AI API and SerpAPI, then discarded.</p>
+</div>
+<h2>1. Who We Are</h2>
+<p><strong>[YOUR BUSINESS NAME]</strong> operates TravelMatch AI. For privacy enquiries contact: <strong>[YOUR EMAIL ADDRESS]</strong></p>
+<h2>2. What Data We Collect</h2>
+<ul>
+  <li><strong>Search queries</strong> — your text is sent to Anthropic's Claude AI to generate preference scores. We do not store queries after the response is returned.</li>
+  <li><strong>Hotel lookup terms</strong> — hotel name and destination are sent to SerpAPI to fetch live availability. We do not store these.</li>
+  <li><strong>Server logs</strong> — our hosting provider (Railway) automatically records IP addresses, browser type, and request timestamps for security. These are retained for up to 30 days.</li>
+</ul>
+<p>We do <strong>not</strong> collect names, email addresses, payment information, or create user accounts.</p>
+<h2>3. Cookies</h2>
+<p>This site does <strong>not</strong> use tracking, analytics, or advertising cookies. No personal data is stored in your browser. See our <a href="/cookies">Cookie Policy</a> for full details.</p>
+<h2>4. Third-Party Services</h2>
+<ul>
+  <li><strong>Anthropic</strong> (anthropic.com) — processes search text to generate AI recommendations. Subject to <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer">Anthropic's Privacy Policy</a>.</li>
+  <li><strong>SerpAPI</strong> (serpapi.com) — retrieves live hotel data. Subject to <a href="https://serpapi.com/privacy" target="_blank" rel="noopener noreferrer">SerpAPI's Privacy Policy</a>.</li>
+  <li><strong>Railway</strong> (railway.app) — our hosting provider. Subject to <a href="https://railway.app/legal/privacy" target="_blank" rel="noopener noreferrer">Railway's Privacy Policy</a>.</li>
+</ul>
+<p>When you click "Book Now" you are directed to third-party booking platforms (e.g. Google Hotels). Their privacy policies apply from that point.</p>
+<h2>5. Affiliate Links</h2>
+<p>Some booking links may be affiliate links. We may earn a commission if you complete a booking, at no additional cost to you. This does not influence our AI-generated recommendations.</p>
+<h2>6. International Transfers</h2>
+<p>Anthropic and SerpAPI are US-based. Your search queries may be processed in the United States. Both companies maintain appropriate data protection safeguards.</p>
+<h2>7. Your Rights (EU / UK / California)</h2>
+<p>You may have rights to: access your data, request correction or deletion, object to processing, and data portability. As we do not store personal data beyond server logs held by Railway, please contact Railway directly or email us at <strong>[YOUR EMAIL]</strong>.</p>
+<h2>8. Children</h2>
+<p>This service is not directed at children under 16. We do not knowingly collect data from minors.</p>
+<h2>9. Changes</h2>
+<p>We may update this policy. The date at the top reflects the latest version.</p>
+<h2>10. Contact</h2>
+<p><strong>[YOUR EMAIL ADDRESS]</strong><br><strong>[YOUR BUSINESS NAME / ADDRESS]</strong></p>
+"""
+    return _legal("Privacy Policy", body)
+
+
+@app.route("/terms")
+def terms():
+    body = """
+<h1>Terms &amp; Conditions</h1>
+<p class="date">Last updated: September 2026</p>
+<div class="box">
+  <p><strong>Important:</strong> TravelMatch AI is a discovery tool only. We do not take bookings. Any booking contract is between you and the hotel or platform you book through.</p>
+</div>
+<h2>1. Service Description</h2>
+<p>TravelMatch AI is an AI-powered hotel discovery platform. We help you find hotels by using artificial intelligence (Anthropic Claude) to match your travel preferences against our hotel database and live availability data.</p>
+<h2>2. AI-Generated Content</h2>
+<p>Hotel recommendations, match scores, and property descriptions on this site are generated by artificial intelligence. This content:</p>
+<ul>
+  <li>Is for informational and discovery purposes only</li>
+  <li>May not reflect current hotel conditions, standards, or pricing</li>
+  <li>Is not a substitute for your own research before booking</li>
+  <li>Does not constitute professional travel advice</li>
+</ul>
+<h2>3. No Booking Service</h2>
+<p>"Book Now" links direct you to third-party platforms. We are not a party to any booking contract. Disputes about bookings must be resolved with the hotel or booking platform directly.</p>
+<h2>4. Pricing Disclaimer</h2>
+<p>Prices shown are estimates from hotel data and live availability checks. They may be out of date or vary by room type, date, and availability. Always confirm final pricing on the booking platform before completing a reservation.</p>
+<h2>5. Hotel Images</h2>
+<p>Hotel photographs are sourced through SerpAPI from Google Hotels and are the property of their respective copyright holders. They are displayed for illustrative discovery purposes only. If you are a rights holder and wish to have an image removed, contact <strong>[YOUR EMAIL]</strong> and we will act promptly.</p>
+<h2>6. Affiliate Commission</h2>
+<p>We operate an affiliate commission model. When you book through a link on this site we may receive a commission from the booking platform. This is paid by the platform, not by you, and does not affect the price you pay. Our AI recommendations are generated independently of any commission arrangements.</p>
+<h2>7. Limitation of Liability</h2>
+<p>To the maximum extent permitted by law, TravelMatch AI is not liable for: inaccuracies in hotel information or pricing; hotel unavailability or cancellations; losses arising from bookings made through third-party platforms; errors in AI-generated content; or service interruptions.</p>
+<h2>8. Intellectual Property</h2>
+<p>The TravelMatch AI platform, matching algorithm, and original content are our intellectual property. Hotel names, trademarks, and images belong to their respective owners. Our use of hotel names is for identification purposes only and does not imply affiliation or endorsement.</p>
+<h2>9. Acceptable Use</h2>
+<p>You may not scrape or systematically download content, attempt to reverse-engineer the matching algorithm, submit malicious inputs, or use this service in violation of applicable law.</p>
+<h2>10. Governing Law</h2>
+<p>These terms are governed by the laws of <strong>[YOUR JURISDICTION — e.g. England &amp; Wales / France / State of New York]</strong>.</p>
+<h2>11. Changes</h2>
+<p>We may update these terms. Continued use of the service constitutes acceptance of any changes.</p>
+<h2>12. Contact</h2>
+<p><strong>[YOUR EMAIL ADDRESS]</strong><br><strong>[YOUR BUSINESS NAME / ADDRESS]</strong></p>
+"""
+    return _legal("Terms &amp; Conditions", body)
+
+
+@app.route("/cookies")
+def cookies():
+    body = """
+<h1>Cookie Policy</h1>
+<p class="date">Last updated: September 2026</p>
+<div class="box">
+  <p><strong>Short version:</strong> TravelMatch AI does not use tracking, analytics, or advertising cookies. This site currently sets no cookies in your browser.</p>
+</div>
+<h2>What Are Cookies?</h2>
+<p>Cookies are small text files placed on your device by websites. They are used for various purposes including keeping you logged in, remembering preferences, and tracking behaviour for analytics or advertising.</p>
+<h2>Cookies We Use</h2>
+<p>TravelMatch AI currently sets <strong>no cookies</strong> of any kind. We do not use:</p>
+<ul>
+  <li>Analytics cookies (e.g. Google Analytics)</li>
+  <li>Advertising or tracking cookies</li>
+  <li>Social media cookies</li>
+  <li>Preference or session cookies</li>
+</ul>
+<p>All search state (your query, results, scores) is held in your browser's memory only and is lost when you close the tab.</p>
+<h2>Third-Party Links</h2>
+<p>When you click "Book Now" and visit a third-party platform, that platform may set its own cookies. We have no control over third-party cookies. Please review the cookie policies of any platform you visit.</p>
+<h2>Future Changes</h2>
+<p>If we introduce cookies in future (for example, analytics), we will update this policy and, where required by law, request your consent before placing any non-essential cookies.</p>
+<h2>Contact</h2>
+<p>For questions about this policy: <strong>[YOUR EMAIL ADDRESS]</strong></p>
+"""
+    return _legal("Cookie Policy", body)
 
 
 if __name__ == "__main__":
