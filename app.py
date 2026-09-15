@@ -1440,7 +1440,7 @@ def privacy():
   <p><strong>Short version:</strong> We do not store your search queries. We do not use tracking or advertising cookies. Your searches are processed in real time by Anthropic's AI API and SerpAPI, then discarded.</p>
 </div>
 <h2>1. Who We Are</h2>
-<p><strong>[YOUR BUSINESS NAME]</strong> operates TravelMatch AI. For privacy enquiries contact: <strong>[YOUR EMAIL ADDRESS]</strong></p>
+<p><strong>Somewhere Like Here</strong> operates TravelMatch AI. For privacy enquiries contact: <strong>artemiydavydovvv@gmail.com</strong></p>
 <h2>2. What Data We Collect</h2>
 <ul>
   <li><strong>Search queries</strong> — your text is sent to Anthropic's Claude AI to generate preference scores. We do not store queries after the response is returned.</li>
@@ -1462,13 +1462,13 @@ def privacy():
 <h2>6. International Transfers</h2>
 <p>Anthropic and SerpAPI are US-based. Your search queries may be processed in the United States. Both companies maintain appropriate data protection safeguards.</p>
 <h2>7. Your Rights (EU / UK / California)</h2>
-<p>You may have rights to: access your data, request correction or deletion, object to processing, and data portability. As we do not store personal data beyond server logs held by Railway, please contact Railway directly or email us at <strong>[YOUR EMAIL]</strong>.</p>
+<p>You may have rights to: access your data, request correction or deletion, object to processing, and data portability. As we do not store personal data beyond server logs held by Railway, please contact Railway directly or email us at <strong>artemiydavydovvv@gmail.com</strong>.</p>
 <h2>8. Children</h2>
 <p>This service is not directed at children under 16. We do not knowingly collect data from minors.</p>
 <h2>9. Changes</h2>
 <p>We may update this policy. The date at the top reflects the latest version.</p>
 <h2>10. Contact</h2>
-<p><strong>[YOUR EMAIL ADDRESS]</strong><br><strong>[YOUR BUSINESS NAME / ADDRESS]</strong></p>
+<p><strong>artemiydavydovvv@gmail.com</strong><br><strong>Somewhere Like Here, Žirmūnų g. 32E, Vilnius, Lithuania</strong></p>
 """
     return _legal("Privacy Policy", body)
 
@@ -1496,7 +1496,7 @@ def terms():
 <h2>4. Pricing Disclaimer</h2>
 <p>Prices shown are estimates from hotel data and live availability checks. They may be out of date or vary by room type, date, and availability. Always confirm final pricing on the booking platform before completing a reservation.</p>
 <h2>5. Hotel Images</h2>
-<p>Hotel photographs are sourced through SerpAPI from Google Hotels and are the property of their respective copyright holders. They are displayed for illustrative discovery purposes only. If you are a rights holder and wish to have an image removed, contact <strong>[YOUR EMAIL]</strong> and we will act promptly.</p>
+<p>Hotel photographs are sourced through SerpAPI from Google Hotels and are the property of their respective copyright holders. They are displayed for illustrative discovery purposes only. If you are a rights holder and wish to have an image removed, contact <strong>artemiydavydovvv@gmail.com</strong> and we will act promptly.</p>
 <h2>6. Affiliate Commission</h2>
 <p>We operate an affiliate commission model. When you book through a link on this site we may receive a commission from the booking platform. This is paid by the platform, not by you, and does not affect the price you pay. Our AI recommendations are generated independently of any commission arrangements.</p>
 <h2>7. Limitation of Liability</h2>
@@ -1506,11 +1506,11 @@ def terms():
 <h2>9. Acceptable Use</h2>
 <p>You may not scrape or systematically download content, attempt to reverse-engineer the matching algorithm, submit malicious inputs, or use this service in violation of applicable law.</p>
 <h2>10. Governing Law</h2>
-<p>These terms are governed by the laws of <strong>[YOUR JURISDICTION — e.g. England &amp; Wales / France / State of New York]</strong>.</p>
+<p>These terms are governed by the laws of <strong>the Republic of Lithuania</strong>.</p>
 <h2>11. Changes</h2>
 <p>We may update these terms. Continued use of the service constitutes acceptance of any changes.</p>
 <h2>12. Contact</h2>
-<p><strong>[YOUR EMAIL ADDRESS]</strong><br><strong>[YOUR BUSINESS NAME / ADDRESS]</strong></p>
+<p><strong>artemiydavydovvv@gmail.com</strong><br><strong>Somewhere Like Here, Žirmūnų g. 32E, Vilnius, Lithuania</strong></p>
 """
     return _legal("Terms &amp; Conditions", body)
 
@@ -1539,7 +1539,7 @@ def cookies():
 <h2>Future Changes</h2>
 <p>If we introduce cookies in future (for example, analytics), we will update this policy and, where required by law, request your consent before placing any non-essential cookies.</p>
 <h2>Contact</h2>
-<p>For questions about this policy: <strong>[YOUR EMAIL ADDRESS]</strong></p>
+<p>For questions about this policy: <strong>artemiydavydovvv@gmail.com</strong></p>
 """
     return _legal("Cookie Policy", body)
 
