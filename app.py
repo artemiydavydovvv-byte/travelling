@@ -127,7 +127,7 @@ def compute_match(rows: list, user_scores: dict) -> None:
             val = row.get(col)
             if isinstance(val, (int, float)):
                 # Dimensions the user cares strongly about (far from neutral 5) count more
-                weight = 1.0 + abs(user_scores[key] - 5) / 5.0  # range 1.0–2.0
+                weight = 1.0 + (abs(user_scores[key] - 5) / 5.0) * 3  # range 1.0–4.0
                 dist += abs(val - user_scores[key]) * weight
                 weight_total += 10.0 * weight
         row["Match %"] = round((1 - dist / weight_total) * 100) if weight_total else 0
@@ -1167,10 +1167,13 @@ HTML = """<!DOCTYPE html>
              onerror="this.outerHTML='<div class=card-img-placeholder>🏨</div>'">`
       : `<div class="card-img-placeholder">🏨</div>`;
 
-    const rawNightly = h.live_price_per_night;
-    const price = rawNightly
-      ? `<span class="card-price">from ${rawNightly}/night</span>`
-      : `<span></span>`;
+    const liveNightly   = h.live_price_per_night;
+    const staticNightly = h['Price (per night)'];
+    const price = liveNightly
+      ? `<span class="card-price">from ${liveNightly}/night</span>`
+      : staticNightly
+        ? `<span class="card-price" title="Historical estimate — verify on booking site">est. ${staticNightly}/night</span>`
+        : `<span></span>`;
 
     const name = h.Name || '';
     const dest = h.Destination || '';
