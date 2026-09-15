@@ -1186,7 +1186,8 @@ HTML = """<!DOCTYPE html>
     const name = h.Name || '';
     const dest = h.Destination || '';
     const url = h.booking_url
-      || ('https://www.google.com/search?q=' + encodeURIComponent(name + ' ' + dest + ' hotel book'));
+      || h.URL
+      || ('https://www.booking.com/search.html?ss=' + encodeURIComponent(name + (dest ? ', ' + dest : '')));
 
     const pitchHtml = h.pitch
       ? `<span class="ai-label">✦ AI insight</span><p class="card-pitch">${h.pitch}</p>`
